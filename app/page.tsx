@@ -6,14 +6,66 @@
 import { useState, useEffect } from "react";
 // Import the Task type definition
 import { Task, TaskStatus } from "@/types/task";
-
+import { formatTime } from "../lib/date";
 const API_URL = "/api/tasks"; // Your base URL for the Next.js Route Handlers
+
+// --- NEW COMPONENT: Delete Confirmation Modal ---
+interface DeleteConfirmationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  taskId: string | null;
+}
+
+const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  taskId,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-zinc-800 p-6 rounded-xl shadow-2xl w-full max-w-sm">
+        <h3 className="text-xl font-bold mb-4 text-red-600 dark:text-red-400">
+          Confirm Deletion
+        </h3>
+        <p className="text-gray-700 dark:text-gray-300 mb-6">
+          Are you sure you want to delete Task ID:{" "}
+          <span className="font-mono text-sm bg-gray-100 dark:bg-zinc-700 p-1 rounded">
+            {taskId}
+          </span>
+          ? This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors dark:bg-zinc-700 dark:text-white dark:hover:bg-zinc-600">
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md">
+            Delete Permanently
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+// --- END MODAL COMPONENT ---
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
   const [loading, setLoading] = useState(true);
-
+  const [isFormVisible, setIsFormVisible] = useState(true);
+  const [isStatsVisible, setIsStatsVisible] = useState(true);
+  const [isFilterVisible, setIsFilterVisible] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [taskToDeleteId, setTaskToDeleteId] = useState<string | null>(null);
   // --- API Functions ---
 
   // 1. GET /tasks
@@ -48,9 +100,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           title: newTaskTitle,
-          description: "A new task.", // Default description
-          status: "On-Going", // 'Not Started', 'In Progress', or 'Completed'
-          createdAt: Date(), // Timestamp for creation
+          description: newTaskDescription, // Default description
         }),
       });
 
@@ -61,51 +111,61 @@ export default function Home() {
 
       const newTask: Task = await response.json();
       setTasks((prev) => [...prev, newTask]); // Add new task to state
-      setNewTaskTitle(""); // Clear input
+      setNewTaskTitle("");
+      setNewTaskDescription(""); // Clear inputs
     } catch (error) {
       console.error("Error adding task:", error);
     }
   };
 
   // 3. PUT /tasks/:id (Toggle Status)
-  const toggleTaskStatus = async (id: string, currentStatus: TaskStatus) => {
-    const newStatus: TaskStatus =
-      currentStatus === "Completed" ? "Not Started" : "Completed";
-
+  const updateTaskStatus = async (id: string, newStatus: TaskStatus) => {
     try {
       const response = await fetch(`${API_URL}/${id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update task");
+        throw new Error(`Failed to set status to ${newStatus}`);
       }
 
-      // Update the local state with the new status (optimistic update is also an option)
-      fetchTasks();
+      // Update state immediately for better UX (optimistic update)
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === id ? { ...task, status: newStatus } : task
+        )
+      );
     } catch (error) {
       console.error("Error updating task status:", error);
     }
   };
 
+  const handleDeleteClick = (id: string) => {
+    setTaskToDeleteId(id);
+    setIsModalOpen(true);
+  };
+
   // 4. DELETE /tasks/:id
-  const deleteTask = async (id: string) => {
+  const confirmedDeleteTask = async () => {
+    if (!taskToDeleteId) return;
+
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
+      const response = await fetch(`${API_URL}/${taskToDeleteId}`, {
         method: "DELETE",
       });
 
       if (!response.ok) {
-        // Note: DELETE returns 204 No Content for success
         throw new Error("Failed to delete task");
       }
 
-      // Remove the task from local state
-      setTasks((prev) => prev.filter((task) => task.id !== id));
+      // Remove from local state
+      setTasks((prev) => prev.filter((task) => task.id !== taskToDeleteId));
+
+      // Close modal and reset ID
+      setIsModalOpen(false);
+      setTaskToDeleteId(null);
     } catch (error) {
       console.error("Error deleting task:", error);
     }
@@ -118,56 +178,138 @@ export default function Home() {
 
   // --- Statistics Calculation ---
   const totalTasks = tasks.length;
+  const notStartedTasks = tasks.filter(
+    (t) => t.status === "Not Started"
+  ).length;
   const completedTasks = tasks.filter((t) => t.status === "Completed").length;
+  const onGoingTasks = tasks.filter((t) => t.status === "In Progress").length;
   const completedPercentage =
     totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
-    <main className="container mx-auto p-4 max-w-3xl">
-      <h1 className="text-4xl font-bold mb-6 text-black dark:text-white">
+    <main className="container mx-auto p-4 max-w-3xl bg-orange-200">
+      <h1 className="text-4xl font-bold mb-6 text-black dark:text-white text-center">
         To-Do List
       </h1>
 
       {/* Basic Stat Display */}
-      <div className="bg-blue-100 p-4 rounded-lg shadow-md mb-6 dark:bg-blue-900">
-        <h2 className="text-xl font-semibold text-blue-800 dark:text-blue-200 mb-2">
-          Basic Stats
+      <div className="bg-gray-100 p-4 rounded-lg shadow-md mb-6 dark:bg-white-300">
+        <h2 className="text-xl font-semibold text-black-800 dark:text-white-400 mb-2 text-center">
+          Tasktistics
         </h2>
-        <p className="flex flex-col text-blue-700 dark:text-blue-300">
-          <span className="font-bold">Total Tasks</span> {totalTasks}
-          <span className="font-bold">Completed</span>
-          {completedTasks}&nbsp;(
-          {completedPercentage}%)
-        </p>
+        <div className="grid grid-cols-4 gap-x-4 text-center">
+          <div className="flex flex-col">
+            <span className="font-bold">Total Tasks</span> {totalTasks}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-red-700">Not Started</span>{" "}
+            {notStartedTasks}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-yellow-600">In Progress</span>{" "}
+            {onGoingTasks}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-green-700">Completed</span>
+            {completedTasks}&nbsp;(
+            {completedPercentage}%)
+          </div>
+        </div>
       </div>
 
-      {/* Task Input Form */}
-      <div className="flex gap-2 mb-8">
-        <input
-          type="text"
-          value={newTaskTitle}
-          onChange={(e) => setNewTaskTitle(e.target.value)}
-          placeholder="Enter new task title..."
-          className="flex-grow p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-zinc-800 dark:border-zinc-700"
-        />
+      {/* Toggle Button for Form */}
+      <div className="mb-4">
+        <button onClick={() => setIsStatsVisible((prev) => !prev)}>
+          Hide Stats
+        </button>
+        <button onClick={() => setIsFilterVisible((prev) => !prev)}>
+          Filters
+        </button>
         <button
-          onClick={addTask}
-          className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-          disabled={!newTaskTitle.trim()}>
-          Add Task
+          onClick={() => setIsFormVisible((prev) => !prev)}
+          className="bg-gray-200 text-gray-800 p-2 rounded-lg font-medium hover:bg-gray-300 transition-colors dark:bg-zinc-700 dark:text-white dark:hover:bg-zinc-600 shadow-md flex items-center gap-2">
+          {isFormVisible ? (
+            <>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-5 h-5">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 12H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                />
+              </svg>
+              Hide
+            </>
+          ) : (
+            <>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-5 h-5">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                />
+              </svg>
+              Add New Task
+            </>
+          )}
         </button>
       </div>
 
+      {/* 3. CONDITIONAL RENDERING for Task Input Form */}
+      {isFormVisible && (
+        <div className="flex flex-col gap-3 mb-8 p-4 bg-gray-50 dark:bg-zinc-900 rounded-xl shadow-lg border border-gray-200 dark:border-zinc-700">
+          <h2 className="text-2xl font-semibold text-black dark:text-white mb-2">
+            Add New Task
+          </h2>
+
+          {/* Title Input */}
+          <input
+            type="text"
+            value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
+            placeholder="Task Title (Required)"
+            className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-zinc-800 dark:border-zinc-700"
+          />
+
+          {/* Description Textarea */}
+          <textarea
+            value={newTaskDescription}
+            onChange={(e) => setNewTaskDescription(e.target.value)}
+            placeholder="Task Description (Optional)"
+            rows={3}
+            className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-zinc-800 dark:border-zinc-700 resize-none"
+          />
+
+          {/* Add Button */}
+          <button
+            onClick={addTask}
+            className="bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 mt-2"
+            disabled={!newTaskTitle.trim()}>
+            Create Task
+          </button>
+        </div>
+      )}
       {/* Task List (List-View) */}
       <h2 className="text-2xl font-semibold mb-4 text-black dark:text-white">
-        Task List
+        Task List ({tasks.length})
       </h2>
 
       {loading && <p className="text-center text-gray-500">Loading tasks...</p>}
 
       {!loading && tasks.length === 0 && (
         <p className="text-center text-gray-500">
-          No tasks found. Add a new one!
+          No tasks found. Add a new one above!
         </p>
       )}
 
@@ -175,8 +317,8 @@ export default function Home() {
         {tasks.map((task) => (
           <li
             key={task.id}
-            className="flex justify-between items-center p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-zinc-800 dark:border-zinc-700">
-            <div className="flex flex-col flex-grow">
+            className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white border border-gray-200 rounded-xl shadow-sm dark:bg-zinc-800 dark:border-zinc-700 transition-shadow hover:shadow-md">
+            <div className="flex flex-col flex-grow mb-2 sm:mb-0">
               <span
                 className={`text-lg font-medium ${
                   task.status === "Completed"
@@ -185,33 +327,156 @@ export default function Home() {
                 }`}>
                 {task.title}
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Status: {task.status} | ID: {task.id.substring(0, 8)}...
+              {task.description && (
+                <p className="text-sm text-gray-600 dark:text-gray-300 italic max-w-xl pr-4">
+                  {task.description}
+                </p>
+              )}
+              <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                ID: {task.id} | Status:{" "}
+                <span
+                  className={`font-semibold ${
+                    task.status === "Completed"
+                      ? "text-green-500"
+                      : task.status === "In Progress"
+                      ? "text-yellow-500"
+                      : "text-red-500"
+                  }`}>
+                  {task.status}
+                </span>{" "}
+                | Created: {formatTime(task.createdAt)}
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Toggle Button */}
-              <button
-                onClick={() => toggleTaskStatus(task.id, task.status)}
-                className={`px-3 py-1 text-sm rounded transition-colors ${
-                  task.status === "Completed"
-                    ? "bg-yellow-500 hover:bg-yellow-600 text-white"
-                    : "bg-green-500 hover:bg-green-600 text-white"
-                }`}>
-                {task.status === "Completed" ? "Restart" : "Complete"}
-              </button>
+            <div className="flex items-center gap-2 mt-2 sm:mt-0">
+              {/* === ACTION BUTTONS based on status === */}
 
-              {/* Delete Button */}
+              {/* A. If status is NOT STARTED */}
+              {task.status === "Not Started" && (
+                <>
+                  {/* Start (On-Going) Button */}
+                  <button
+                    onClick={() => updateTaskStatus(task.id, "In Progress")}
+                    title="Set to On-Going (In Progress)"
+                    className="p-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors shadow-md">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round">
+                      <circle cx="12" cy="13" r="10" />
+                      <path d="M12 9v5l3 3" />
+                    </svg>
+                  </button>
+                  {/* Mark Complete Button */}
+                  <button
+                    onClick={() => updateTaskStatus(task.id, "Completed")}
+                    title="Mark Complete"
+                    className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <path d="m9 11 3 3L22 4" />
+                    </svg>
+                  </button>
+                </>
+              )}
+
+              {/* B. If status is IN PROGRESS */}
+              {task.status === "In Progress" && (
+                <>
+                  {/* Mark Complete Button */}
+                  <button
+                    onClick={() => updateTaskStatus(task.id, "Completed")}
+                    title="Mark Complete"
+                    className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <path d="m9 11 3 3L22 4" />
+                    </svg>
+                  </button>
+                </>
+              )}
+
+              {/* C. If status is COMPLETED */}
+              {task.status === "Completed" && (
+                <>
+                  {/* Restart Button */}
+                  <button
+                    onClick={() => updateTaskStatus(task.id, "Not Started")}
+                    title="Restart Task (Set to Not Started)"
+                    className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round">
+                      <path d="M21.5 2v6H15" />
+                      <path d="M22 12a10 10 0 1 0-4.66 8.32" />
+                    </svg>
+                  </button>
+                </>
+              )}
+
+              {/* Delete Button (Always Visible, Triggers Modal) */}
               <button
-                onClick={() => deleteTask(task.id)}
-                className="bg-red-500 text-white px-3 py-1 text-sm rounded hover:bg-red-600 transition-colors">
-                Delete
+                onClick={() => handleDeleteClick(task.id)}
+                title="Delete Task"
+                className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round">
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
               </button>
             </div>
           </li>
         ))}
       </ul>
+
+      {/* Render the Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={confirmedDeleteTask}
+        taskId={taskToDeleteId}
+      />
     </main>
   );
 }
