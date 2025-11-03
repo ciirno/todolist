@@ -6,5 +6,4 @@ export interface Task {
   description: string; // Task details
   status: TaskStatus; // 'Not Started', 'In Progress', or 'Completed'
   createdAt: number; // Timestamp for creation
-  completedAt: number;
 }
