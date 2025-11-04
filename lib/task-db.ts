@@ -1,43 +1,15 @@
-import { Task } from "../types/task";
+import { Task, TaskStatus } from "../types/task";
 
-const TASKS_KEY = "tasks";
-const NEXT_ID_KEY = "nextId";
+// ⚠️ IMPORTANT: This array simulates a database. Data is volatile and resets on server restart.
+let nextId = 1;
+let tasks: Task[] = [];
 
-// --- Safe Local Storage Helpers ---
-const readTasksFromStorage = (): Task[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    const data = localStorage.getItem(TASKS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-};
-
-const writeTasksToStorage = (tasks: Task[]): void => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
-};
-
-const readNextId = (): number => {
-  if (typeof window === "undefined") return 1;
-  const savedId = localStorage.getItem(NEXT_ID_KEY);
-  return savedId ? parseInt(savedId, 10) : 1;
-};
-
-const writeNextId = (nextId: number): void => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(NEXT_ID_KEY, nextId.toString());
-};
-
-// --- CRUD Operations ---
+// --- POST (Create) Operation ---
 export const createTask = (title: string, description: string): Task => {
-  const tasks = readTasksFromStorage();
+  // Use the built-in crypto.randomUUID() for a standard UUID (Universally Unique Identifier)
+  const newId = nextId.toString();
 
-  const currentId = readNextId();
-  const newId = currentId.toString();
-  writeNextId(currentId + 1);
-
+  nextId++;
   const newTask: Task = {
     id: newId,
     title,
@@ -45,41 +17,33 @@ export const createTask = (title: string, description: string): Task => {
     status: "Not Started",
     createdAt: Date.now(),
   };
-
   tasks.push(newTask);
-  writeTasksToStorage(tasks);
   return newTask;
 };
 
-export const getTasks = (): Task[] => readTasksFromStorage();
+export const getTasks = (): Task[] => {
+  return tasks;
+};
 
-export const getTaskById = (id: string): Task | undefined =>
-  readTasksFromStorage().find((task) => task.id === id);
+export const getTaskById = (id: string): Task | undefined => {
+  return tasks.find((task) => task.id === id);
+};
 
 export const updateTask = (
   id: string,
   updates: Partial<Task>
 ): Task | undefined => {
-  const tasks = readTasksFromStorage();
   const index = tasks.findIndex((task) => task.id === id);
-  if (index === -1) return undefined;
 
-  tasks[index] = { ...tasks[index], ...updates };
-  writeTasksToStorage(tasks);
-  return tasks[index];
+  if (index !== -1) {
+    tasks[index] = { ...tasks[index], ...updates };
+    return tasks[index];
+  }
+  return undefined;
 };
 
 export const deleteTask = (id: string): boolean => {
-  const tasks = readTasksFromStorage();
-  const filtered = tasks.filter((task) => task.id !== id);
-  if (filtered.length === tasks.length) return false;
-
-  writeTasksToStorage(filtered);
-  return true;
-};
-
-export const clearAllTasks = (): void => {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(TASKS_KEY);
-  localStorage.setItem(NEXT_ID_KEY, "1");
+  const initialLength = tasks.length;
+  tasks = tasks.filter((task) => task.id !== id);
+  return tasks.length < initialLength; // Returns true if a task was actually removed
 };
