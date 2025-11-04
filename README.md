@@ -27,9 +27,11 @@ cd todolist
 1. Navigate to add repository.
 
 <img width="386" height="185" alt="image-1" src="https://github.com/user-attachments/assets/64d10749-64c2-46a8-9b48-3f6c8fed3828" />
+
 2. Click URL
 
 Paste the url: https://github.com/ciirno/todolist
+
 Note: Make sure the folder of the local path is empty
 
 <img width="496" height="234" alt="image" src="https://github.com/user-attachments/assets/1736a69a-df13-4418-bafb-520515071293" />
