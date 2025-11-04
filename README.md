@@ -1,6 +1,6 @@
-<TODO LIST>
+TODO LIST
 
-<A simple application that creates task and tracks whether it's in progress or completed.>
+A simple application that creates task and tracks whether it's in progress or completed.
 
 🛠️ Setup Instructions
 
@@ -14,9 +14,30 @@ Git or Github Desktop: For cloning the repository.
 
 Node.js & npm (or Yarn): Required for applications built with JavaScript frameworks (e.g., React, Angular, Vue) or Node.js backends.
 
+For Git:
+
 ```
 git clone https://github.com/ciirno/todolist
 cd todolist
+```
+
+For GitHub Desktop:
+
+```
+1. Navigate to add repository.
+
+![alt text](image-1.png)
+2. Click URL
+
+Paste the url: https://github.com/ciirno/todolist
+Note: Make sure the folder of the local path is empty
+
+![alt text](image.png)
+3. Click Clone
+
+4. Click Repository Tab on the menu above and Open in Visual Studio Code.
+
+![alt text](image-2.png)
 ```
 
 Install the following packages using npm:
