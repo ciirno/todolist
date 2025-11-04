@@ -106,7 +106,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           className={`text-xs text-gray-500 dark:text-gray-400 mt-1 ${
             isKanbanView ? "mt-2" : ""
           }`}>
-          Status:{" "}
+          ID: {task.id} | Status:{" "}
           <span className={`font-semibold ${statusColor}`}>{task.status}</span>{" "}
           | Created: {formatTime(task.createdAt)}
         </span>
