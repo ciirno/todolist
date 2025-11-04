@@ -1,19 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/app/api/tasks/[id]/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { updateTask, deleteTask } from "@/lib/task-db";
 import { TaskStatus } from "@/types/task";
 
-// Define the shape of the dynamic segment (id)
-interface Context {
-  params: {
-    id: string;
-  };
-}
-
 // 3. PUT /tasks/:id (Updates a task, e.g., mark as completed)
-export async function PUT(request: Request, context: Context) {
-  const { id } = await context.params;
-
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> } // Correctly defining the required 'params' structure
+): Promise<NextResponse> {
+  const { id } = await params;
   try {
     const body = await request.json();
     const { status } = body; // You might update title, description, or status
@@ -34,7 +30,7 @@ export async function PUT(request: Request, context: Context) {
       return new NextResponse("Task not found", { status: 404 });
     }
 
-    return NextResponse.json(updated);
+    return NextResponse.json({ message: `Task ${id} updated successfully` });
   } catch (error) {
     return new NextResponse("Invalid request body or server error", {
       status: 400,
@@ -43,8 +39,11 @@ export async function PUT(request: Request, context: Context) {
 }
 
 // 4. DELETE /tasks/:id (Deletes a task)
-export async function DELETE(request: Request, context: Context) {
-  const { id } = await context.params;
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> } // Correctly defining the required 'params' structure
+): Promise<NextResponse> {
+  const { id } = await params;
   const wasDeleted = deleteTask(id);
 
   if (!wasDeleted) {
