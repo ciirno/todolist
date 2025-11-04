@@ -1,11 +1,15 @@
-// src/app/page.tsx
-
 // Use client component directive because we are using useState and fetch on the client
 "use client";
 
 import { useState, useEffect } from "react";
-// Import the Task type definition
 import { Task, TaskStatus } from "@/types/task";
+import {
+  getTasks,
+  createTask,
+  deleteTask,
+  updateTask,
+  clearAllTasks,
+} from "@/lib/task-db";
 import { formatTime } from "../lib/date";
 const API_URL = "/api/tasks"; // Your base URL for the Next.js Route Handlers
 
@@ -330,77 +334,39 @@ export default function Home() {
   const [taskToDeleteId, setTaskToDeleteId] = useState<string | null>(null);
   // --- API Functions ---
 
-  // 1. GET /tasks
-  const fetchTasks = async () => {
+  const fetchTasks = () => {
     setLoading(true);
     try {
-      const response = await fetch(API_URL);
-      if (!response.ok) {
-        throw new Error("Failed to fetch tasks");
-      }
-      const data: Task[] = await response.json();
+      const data = getTasks();
       setTasks(data);
     } catch (error) {
-      console.error("Error fetching tasks:", error);
-      // Fallback for empty/error state
+      console.error("Error reading tasks:", error);
       setTasks([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. POST /tasks
-  const addTask = async () => {
-    if (!newTaskTitle.trim()) return alert("Task title cannot be empty."); // Basic Validation
+  const addTask = () => {
+    if (!newTaskTitle.trim()) return alert("Task title cannot be empty.");
 
     try {
-      console.log(fetch(API_URL));
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: newTaskTitle,
-          description: newTaskDescription, // Default description
-        }),
-      });
-
-      console.log(response);
-      if (!response.ok) {
-        throw new Error("Failed to add task");
-      }
-
-      const newTask: Task = await response.json();
-      setTasks((prev) => [...prev, newTask]); // Add new task to state
+      const newTask = createTask(newTaskTitle, newTaskDescription);
+      setTasks((prev) => [...prev, newTask]);
       setNewTaskTitle("");
-      setNewTaskDescription(""); // Clear inputs
+      setNewTaskDescription("");
     } catch (error) {
-      console.error("Error adding task:", error);
+      console.error("Error creating task:", error);
     }
   };
 
-  // 3. PUT /tasks/:id (Toggle Status)
-  const updateTaskStatus = async (id: string, newStatus: TaskStatus) => {
+  const updateTaskStatus = (id: string, newStatus: TaskStatus) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to set status to ${newStatus}`);
-      }
-
-      // Update state immediately for better UX (optimistic update)
-      setTasks((prevTasks) =>
-        prevTasks.map((task) =>
-          task.id === id ? { ...task, status: newStatus } : task
-        )
-      );
+      const updated = updateTask(id, { status: newStatus });
+      if (!updated) throw new Error("Task not found");
+      setTasks(getTasks());
     } catch (error) {
-      console.error("Error updating task status:", error);
+      console.error("Error updating task:", error);
     }
   };
 
@@ -409,45 +375,34 @@ export default function Home() {
     setIsModalOpen(true);
   };
 
-  // 4. DELETE /tasks/:id
-  const confirmedDeleteTask = async () => {
+  const confirmedDeleteTask = () => {
     if (!taskToDeleteId) return;
-
     try {
-      const response = await fetch(`${API_URL}/${taskToDeleteId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete task");
+      const success = deleteTask(taskToDeleteId);
+      if (success) {
+        setTasks((prev) => prev.filter((task) => task.id !== taskToDeleteId));
       }
-
-      // Remove from local state
-      setTasks((prev) => prev.filter((task) => task.id !== taskToDeleteId));
-
-      // Close modal and reset ID
-      setIsModalOpen(false);
-      setTaskToDeleteId(null);
     } catch (error) {
       console.error("Error deleting task:", error);
+    } finally {
+      setIsModalOpen(false);
+      setTaskToDeleteId(null);
     }
   };
 
   const toggleFilter = (status: TaskStatus) => {
     setActiveFilters((prevFilters) => {
       if (prevFilters.includes(status)) {
-        // Remove filter
-        if (prevFilters.length === 1) return prevFilters; // Prevent removing the last filter
+        if (prevFilters.length === 1) return prevFilters; // prevent clearing all
         return prevFilters.filter((f) => f !== status);
       } else {
-        // Add filter
         return [...prevFilters, status];
       }
     });
   };
 
-  // Fetch tasks on component mount
   useEffect(() => {
+    // Load tasks from localStorage when component mounts
     fetchTasks();
   }, []);
 
