@@ -1,46 +1,46 @@
-TODO LIST
+# TODO LIST
 
-A simple application that creates task and tracks whether it's in progress or completed.
+## A simple application that creates task and tracks whether it's in progress or completed.
 
 🛠️ Setup Instructions
 
 Follow these steps to get a copy of the project up and running on your local machine.
 
-Prerequisites
+### Prerequisites
 
 Before starting, ensure you have the following installed on your system:
 
-Git or Github Desktop: For cloning the repository.
+### Git or Github Desktop: For cloning the repository.
 
 Node.js & npm (or Yarn): Required for applications built with JavaScript frameworks (e.g., React, Angular, Vue) or Node.js backends.
 
-For Git:
+### For Git:
 
 ```
 git clone https://github.com/ciirno/todolist
 cd todolist
 ```
 
-For GitHub Desktop:
+### For GitHub Desktop:
 
-```
+
 1. Navigate to add repository.
 
-![alt text](image-1.png)
+<img width="386" height="185" alt="image-1" src="https://github.com/user-attachments/assets/64d10749-64c2-46a8-9b48-3f6c8fed3828" />
 2. Click URL
 
 Paste the url: https://github.com/ciirno/todolist
 Note: Make sure the folder of the local path is empty
 
-![alt text](image.png)
+<img width="496" height="234" alt="image" src="https://github.com/user-attachments/assets/1736a69a-df13-4418-bafb-520515071293" />
 3. Click Clone
 
 4. Click Repository Tab on the menu above and Open in Visual Studio Code.
 
-![alt text](image-2.png)
-```
+<img width="410" height="370" alt="image-2" src="https://github.com/user-attachments/assets/6be43a34-5c81-42ae-9616-589010dc80bf" />
 
-Install the following packages using npm:
+
+### Install the following packages using npm:
 
 ```
 npm install
@@ -48,7 +48,7 @@ npm install
 # yarn install
 ```
 
-Run the development server:
+### Run the development server:
 
 ```bash
 npm run dev
@@ -60,14 +60,14 @@ pnpm dev
 bun dev
 ```
 
-Technologies used:
+### Technologies used:
 
-1.NextJS
-2.Typescript
-3.Local Storage
-4.Tailwind for styling
+1. NextJS
+2. Typescript
+3. Local Storage
+4. Tailwind for styling
 
-Known Limitations or Future Improvements:
+###  Known Limitations or Future Improvements:
 
 1. Add the ability to edit a task, editing the description or the title.
 2. Add a date when a task is completed
